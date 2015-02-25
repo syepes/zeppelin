@@ -12,6 +12,7 @@ import org.apache.spark.SparkContext;
 import org.apache.spark.sql.SQLContext;
 import org.apache.spark.sql.SchemaRDD;
 import org.apache.spark.sql.hive.HiveContext;
+import org.apache.spark.sql.cassandra.CassandraSQLContext;
 
 import scala.Tuple2;
 import scala.collection.Iterable;
@@ -37,11 +38,13 @@ public class ZeppelinContext {
 
   public ZeppelinContext(SparkContext sc, SQLContext sql,
       HiveContext hiveContext,
+      CassandraSQLContext csc,
       InterpreterContext interpreterContext,
       DependencyResolver dep, PrintStream printStream) {
     this.sc = sc;
     this.sqlContext = sql;
     this.hiveContext = hiveContext;
+    this.csc = csc;
     this.interpreterContext = interpreterContext;
     this.dep = dep;
     this.out = printStream;
@@ -50,6 +53,7 @@ public class ZeppelinContext {
   public SparkContext sc;
   public SQLContext sqlContext;
   public HiveContext hiveContext;
+  public CassandraSQLContext csc;
   private Setting form;
 
   public SchemaRDD sql(String sql) {

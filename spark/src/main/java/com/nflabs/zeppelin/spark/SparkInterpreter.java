@@ -26,6 +26,7 @@ import org.apache.spark.scheduler.DAGScheduler;
 import org.apache.spark.scheduler.Pool;
 import org.apache.spark.scheduler.Stage;
 import org.apache.spark.sql.SQLContext;
+import org.apache.spark.sql.cassandra.CassandraSQLContext;
 import org.apache.spark.sql.hive.HiveContext;
 import org.apache.spark.ui.jobs.JobProgressListener;
 import org.slf4j.Logger;
@@ -94,6 +95,7 @@ public class SparkInterpreter extends Interpreter {
   private ByteArrayOutputStream out;
   private SQLContext sqlc;
   private HiveContext hiveContext;
+  private CassandraSQLContext csc;
   private DependencyResolver dep;
   private SparkJLineCompletion completor;
 
@@ -147,6 +149,13 @@ public class SparkInterpreter extends Interpreter {
       hiveContext = new HiveContext(getSparkContext());
     }
     return hiveContext;
+  }
+
+  public CassandraSQLContext getCassandraSQLContext() {
+    if (csc == null) {
+      csc = new CassandraSQLContext(getSparkContext());
+    }
+    return csc;
   }
 
   public DependencyResolver getDependencyResolver() {
@@ -336,7 +345,7 @@ public class SparkInterpreter extends Interpreter {
 
     dep = getDependencyResolver();
 
-    z = new ZeppelinContext(sc, sqlc, getHiveContext(), null, dep, printStream);
+    z = new ZeppelinContext(sc, sqlc, getHiveContext(), getCassandraSQLContext(), null, dep, printStream);
 
     this.interpreter.loadFiles(settings);
 
@@ -345,6 +354,7 @@ public class SparkInterpreter extends Interpreter {
     binder.put("sc", sc);
     binder.put("sqlc", sqlc);
     binder.put("hiveContext", getHiveContext());
+    binder.put("csc", getCassandraSQLContext());
     binder.put("z", z);
     binder.put("out", printStream);
 
@@ -356,6 +366,8 @@ public class SparkInterpreter extends Interpreter {
                  + "_binder.get(\"sqlc\").asInstanceOf[org.apache.spark.sql.SQLContext]");
     intp.interpret("@transient val hiveContext = "
         + "_binder.get(\"hiveContext\").asInstanceOf[org.apache.spark.sql.hive.HiveContext]");
+    intp.interpret("@transient val csc = _binder.get(\"csc\")"
+        + ".asInstanceOf[org.apache.spark.sql.cassandra.CassandraSQLContext]");
     intp.interpret("import org.apache.spark.SparkContext._");
     intp.interpret("import sqlc._");
 

@@ -12,6 +12,7 @@ import org.apache.spark.scheduler.ActiveJob;
 import org.apache.spark.scheduler.DAGScheduler;
 import org.apache.spark.scheduler.Stage;
 import org.apache.spark.sql.SQLContext;
+import org.apache.spark.sql.cassandra.CassandraSQLContext;
 import org.apache.spark.sql.SchemaRDD;
 import org.apache.spark.sql.catalyst.expressions.Attribute;
 import org.apache.spark.sql.catalyst.expressions.Row;
@@ -55,6 +56,8 @@ public class SparkSqlInterpreter extends Interpreter {
             .add("zeppelin.spark.maxResult", "10000", "Max number of SparkSQL result to display.")
             .add("zeppelin.spark.useHiveContext", "false",
                 "Use HiveContext instead of SQLContext if it is true.")
+            .add("zeppelin.spark.useCassandraSQLContext", "false",
+                "Use CassandraSQLContext instead of SQLContext if it is true.")
             .add("zeppelin.spark.concurrentSQL", "false",
                 "Execute multiple SQL concurrently if set true.")
             .build());
@@ -95,7 +98,11 @@ public class SparkSqlInterpreter extends Interpreter {
   private boolean useHiveContext() {
     return Boolean.parseBoolean(getProperty("zeppelin.spark.useHiveContext"));
   }
-  
+
+  private boolean useCassandraSQLContext() {
+    return Boolean.parseBoolean(getProperty("zeppelin.spark.useCassandraSQLContext"));
+  }
+
   public boolean concurrentSQL() {
     return Boolean.parseBoolean(getProperty("zeppelin.spark.concurrentSQL"));
   }
@@ -110,15 +117,19 @@ public class SparkSqlInterpreter extends Interpreter {
 
   @Override
   public InterpreterResult interpret(String st, InterpreterContext context) {
-    SQLContext sqlc = null;
+    SparkContext sc = null;
 
-    if (useHiveContext()) {
-      sqlc = getSparkInterpreter().getHiveContext();
+    if (useCassandraSQLContext()) {
+      CassandraSQLContext sqlc = getSparkInterpreter().getCassandraSQLContext();
+      sc = sqlc.sparkContext();
+    } else if(useHiveContext()) {
+      SQLContext sqlc = getSparkInterpreter().getHiveContext();
+      sc = sqlc.sparkContext();
     } else {
-      sqlc = getSparkInterpreter().getSQLContext();
+      SQLContext sqlc = getSparkInterpreter().getSQLContext();
+      sc = sqlc.sparkContext();
     }
 
-    SparkContext sc = sqlc.sparkContext();
     if (concurrentSQL()) {
       sc.setLocalProperty("spark.scheduler.pool", "fair");
     } else {
@@ -129,7 +140,18 @@ public class SparkSqlInterpreter extends Interpreter {
     SchemaRDD rdd;
     Row[] rows = null;
     try {
-      rdd = sqlc.sql(st);
+
+      if (useCassandraSQLContext()) {
+        CassandraSQLContext sqlc = getSparkInterpreter().getCassandraSQLContext();
+        rdd = sqlc.sql(st);
+      } else if(useHiveContext()) {
+        SQLContext sqlc = getSparkInterpreter().getHiveContext();
+        rdd = sqlc.sql(st);
+      } else {
+        SQLContext sqlc = getSparkInterpreter().getSQLContext();
+        rdd = sqlc.sql(st);
+      }
+
       rows = rdd.take(maxResult + 1);
     } catch (Exception e) {
       logger.error("Error", e);
@@ -181,8 +203,15 @@ public class SparkSqlInterpreter extends Interpreter {
 
   @Override
   public void cancel(InterpreterContext context) {
-    SQLContext sqlc = getSparkInterpreter().getSQLContext();
-    SparkContext sc = sqlc.sparkContext();
+    SparkContext sc = null;
+
+    if(useCassandraSQLContext()) {
+      CassandraSQLContext sqlc = getSparkInterpreter().getCassandraSQLContext();
+      sc = sqlc.sparkContext();
+    } else {
+      SQLContext sqlc = getSparkInterpreter().getSQLContext();
+      sc = sqlc.sparkContext();
+    }
 
     sc.cancelJobGroup(getJobGroup(context));
   }
@@ -201,8 +230,16 @@ public class SparkSqlInterpreter extends Interpreter {
   @Override
   public int getProgress(InterpreterContext context) {
     String jobGroup = getJobGroup(context);
-    SQLContext sqlc = getSparkInterpreter().getSQLContext();
-    SparkContext sc = sqlc.sparkContext();
+    SparkContext sc = null;
+
+    if(useCassandraSQLContext()) {
+      CassandraSQLContext sqlc = getSparkInterpreter().getCassandraSQLContext();
+      sc = sqlc.sparkContext();
+    } else {
+      SQLContext sqlc = getSparkInterpreter().getSQLContext();
+      sc = sqlc.sparkContext();
+    }
+
     JobProgressListener sparkListener = getSparkInterpreter().getJobProgressListener();
     int completedTasks = 0;
     int totalTasks = 0;
