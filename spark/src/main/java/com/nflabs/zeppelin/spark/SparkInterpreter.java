@@ -371,6 +371,10 @@ public class SparkInterpreter extends Interpreter {
     intp.interpret("import org.apache.spark.SparkContext._");
     intp.interpret("import sqlc._");
 
+    if (Boolean.parseBoolean(getProperty("zeppelin.spark.useCassandraSQLContext"))) {
+      intp.interpret("import csc._");
+    }
+
     // add jar
     if (depInterpreter != null) {
       DependencyContext depc = depInterpreter.getDependencyContext();
