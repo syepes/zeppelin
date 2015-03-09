@@ -63,6 +63,11 @@ if [[ -z "$ZEPPELIN_INTERPRETER_DIR" ]]; then
   export ZEPPELIN_INTERPRETER_DIR="${ZEPPELIN_HOME}/interpreter"
 fi
 
+ls ${ZEPPELIN_HOME}/interpreter/spark/spark-core_2.10* | grep 'spark[-]core_2[.]10[-]1[.]2' > /dev/null 2> /dev/null
+if [[ $? -eq 0 ]]; then
+   export SPARK_1_2_WORKAROUND
+fi
+
 if [[ -f "${ZEPPELIN_CONF_DIR}/zeppelin-env.sh" ]]; then
   . "${ZEPPELIN_CONF_DIR}/zeppelin-env.sh"
 fi
@@ -76,12 +81,17 @@ function addJarInDir(){
     done
   fi
 }
-  
+
 addJarInDir "${ZEPPELIN_HOME}"
 addJarInDir "${ZEPPELIN_HOME}/lib"
 addJarInDir "${ZEPPELIN_HOME}/zeppelin-zengine/target/lib"
 addJarInDir "${ZEPPELIN_HOME}/zeppelin-server/target/lib"
 addJarInDir "${ZEPPELIN_HOME}/zeppelin-web/target/lib"
+if [[ -z "${SPARK_1_2_WORKAROUND}" ]]; then
+  addJarInDir "${ZEPPELIN_HOME}/interpreter/spark"
+  addJarInDir "${ZEPPELIN_HOME}/interpreter/sh"
+  addJarInDir "${ZEPPELIN_HOME}/interpreter/md"
+fi
 
 if [[ -d "${ZEPPELIN_HOME}/zeppelin-zengine/target/classes" ]]; then
   ZEPPELIN_CLASSPATH+=":${ZEPPELIN_HOME}/zeppelin-zengine/target/classes"
